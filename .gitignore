@@ -7,10 +7,12 @@ __pycache__/
 venv/
 .venv/
 
+# Do not commit design assets
+design/
+
 # Logs
 logs/*.log
 
 # OS / editor noise
 .DS_Store
 Thumbs.db
-
