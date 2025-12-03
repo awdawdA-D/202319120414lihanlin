@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>连接诊断 | 带派聊天室</title>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:#f7f7f7; color:#222; }
+    .wrap { max-width: 680px; margin: 24px auto; padding: 16px; background:#fff; border:1px solid #ddd; border-radius: 8px; }
+    h1 { font-size: 20px; margin: 0 0 12px; }
+    .env { font-size: 12px; color:#555; margin-bottom: 12px; }
+    ul { list-style: none; padding: 0; margin: 0; }
+    li { padding: 10px 12px; border:1px solid #eee; border-radius: 6px; margin-bottom: 8px; background:#fafafa; }
+    .ok { border-color: #c6f6d5; background:#f0fff4; }
+    .fail { border-color: #fed7d7; background:#fff5f5; }
+    .name { font-weight: 600; }
+    .status { margin-left: 8px; }
+    .detail { font-size: 12px; color:#555; margin-top: 4px; word-break: break-all; }
+  </style>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script>
+    function addResult(name, ok, statusText, detailText) {
+      const li = document.createElement('li');
+      li.className = ok ? 'ok' : 'fail';
+      const nameEl = document.createElement('span');
+      nameEl.className = 'name';
+      nameEl.textContent = name;
+      const statusEl = document.createElement('span');
+      statusEl.className = 'status';
+      statusEl.textContent = ok ? '成功' : '失败';
+      const detailEl = document.createElement('div');
+      detailEl.className = 'detail';
+      detailEl.textContent = (statusText ? (statusText + ' ') : '') + (detailText || '');
+      li.appendChild(nameEl);
+      li.appendChild(statusEl);
+      li.appendChild(detailEl);
+      document.getElementById('results').appendChild(li);
+    }
+
+    async function testHealth() {
+      try {
+        const res = await fetch('/health', { cache: 'no-store' });
+        const txt = await res.text();
+        addResult('健康检查 /health', res.ok, 'HTTP ' + res.status, txt.slice(0, 120));
+      } catch (err) {
+        addResult('健康检查 /health', false, '', String(err));
+      }
+    }
+
+    async function testServers() {
+      try {
+        const res = await fetch('/api/servers', { cache: 'no-store' });
+        const json = await res.json();
+        const count = Array.isArray(json.servers) ? json.servers.length : 0;
+        addResult('接口 /api/servers', res.ok, '服务器数量: ' + count, JSON.stringify(json).slice(0, 200));
+      } catch (err) {
+        addResult('接口 /api/servers', false, '', String(err));
+      }
+    }
+
+    async function testPollingHandshake() {
+      try {
+        const url = '/socket.io/?EIO=4&transport=polling';
+        const res = await fetch(url, { cache: 'no-store' });
+        const txt = await res.text();
+        addResult('Socket.IO 轮询握手', res.ok, 'HTTP ' + res.status, txt.slice(0, 120));
+      } catch (err) {
+        addResult('Socket.IO 轮询握手', false, '', String(err));
+      }
+    }
+
+    async function testSocketConnect() {
+      return new Promise((resolve) => {
+        let finished = false;
+        const socket = io(window.location.origin, {
+          transports: ['websocket'],
+          reconnection: false,
+          timeout: 5000,
+          path: '/socket.io'
+        });
+        socket.on('connect', () => {
+          if (finished) return;
+          finished = true;
+          addResult('Socket.IO 客户端连接（WebSocket）', true, 'sid: ' + socket.id, 'transports: ' + socket.io.engine.transport.name);
+          socket.disconnect();
+          resolve();
+        });
+        socket.on('connect_error', (err) => {
+          if (finished) return;
+          finished = true;
+          addResult('Socket.IO 客户端连接（WebSocket）', false, '', String(err && (err.message || err)));
+          try { socket.disconnect(); } catch (e) {}
+          resolve();
+        });
+      });
+    }
+
+    async function testSocketPollingConnect() {
+      return new Promise((resolve) => {
+        let finished = false;
+        const socket = io(window.location.origin, {
+          transports: ['polling'],
+          upgrade: false,
+          reconnection: false,
+          timeout: 5000,
+          path: '/socket.io'
+        });
+        socket.on('connect', () => {
+          if (finished) return;
+          finished = true;
+          addResult('Socket.IO 客户端连接（轮询）', true, 'sid: ' + socket.id, 'transports: ' + socket.io.engine.transport.name);
+          socket.disconnect();
+          resolve();
+        });
+        socket.on('connect_error', (err) => {
+          if (finished) return;
+          finished = true;
+          addResult('Socket.IO 客户端连接（轮询）', false, '', String(err && (err.message || err)));
+          try { socket.disconnect(); } catch (e) {}
+          resolve();
+        });
+      });
+    }
+
+    async function runAll() {
+      document.getElementById('env').textContent = '当前域：' + window.location.origin;
+      await testHealth();
+      await testServers();
+      await testPollingHandshake();
+      await testSocketPollingConnect();
+      await testSocketConnect();
+      addResult('完成', true, '请截屏并发送给我', '我们将据此快速定位问题');
+    }
+
+    window.addEventListener('DOMContentLoaded', runAll);
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <h1>连接诊断</h1>
+    <div class="env" id="env"></div>
+    <ul id="results"></ul>
+  </div>
+</body>
+</html>

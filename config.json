@@ -1,0 +1,15 @@
+{
+  "servers": [
+    { "name": "本地局域网", "url": "http://YOUR_LAN_IP:15200" },
+    { "name": "公开网", "url": "http://8240qwp2i10w.ngrok.xiaomiqiu123.top" }
+  ],
+  "ai": {
+    "api_key": "sk-xlogsbtdivcehmvdlqrhugmnskhpuyeqqtyegwpdlnvmejph",
+    "base_url": "https://api.siliconflow.cn/v1",
+    "model": "Qwen/Qwen2.5-7B-Instruct"
+  },
+  "weather": {
+    "api_key": "4b348612391f7c85af0451f04066e99e",
+    "base_url": "https://api.openweathermap.org"
+  }
+}

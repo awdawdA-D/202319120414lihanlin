@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>45码大汗脚带派聊天室</title>
+  <style>
+    :root { --primary:#25b7c4; --bg:#f6f9fc; }
+    *{ box-sizing: border-box; }
+    html,body{ height:100%; }
+    body{ margin:0; background:linear-gradient(135deg,#eaf7ff,#fff); font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans","Microsoft Yahei",sans-serif; }
+    .wrap{ height:100vh; display:grid; grid-template-rows:auto 1fr auto; }
+    .header{ display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#fff; border-bottom:1px solid #e5e7eb; }
+    .brand{ font-weight:600; color:#0f172a; }
+    .user{ color:#334155; font-size:14px; }
+    .main{ display:grid; grid-template-columns:280px 1fr; height:100%; overflow:hidden; min-height:0; }
+    .sidebar{ background:#f8fafc; border-right:1px solid #e5e7eb; padding:12px; overflow:hidden; }
+    .room-title{ font-size:14px; color:#334155; margin-bottom:8px; }
+    .contacts{ list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:6px; font-size:14px; color:#0f172a; }
+    .contact{ background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; }
+    .content{ background:#fff; display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+    .messages{ flex:1 1 auto; overflow-y:auto; padding:16px; display:flex; flex-direction:column; justify-content:flex-start; gap:8px; min-height:0; }
+    .messages::-webkit-scrollbar{ width:8px; }
+    .messages::-webkit-scrollbar-thumb{ background:#cbd5e1; border-radius:4px; }
+    .bubble{ max-width:70%; padding:10px 12px; margin:8px 0; border-radius:14px; box-shadow:0 2px 6px rgba(0,0,0,.06); display:inline-block; font-size:14px; }
+    .me{ background:#dcfce7; margin-left:auto; }
+    .other{ background:#f1f5f9; }
+    .system{ background:#fee2e2; color:#b91c1c; }
+    .inputbar{ display:flex; gap:8px; padding:10px; border-top:1px solid #e5e7eb; align-items:center; flex-shrink:0; }
+    .emoji-btn{ width:36px; height:36px; border:none; border-radius:50%; background:#eef2ff; color:#0f172a; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+    .emoji-btn:hover{ background:#e0e7ff; }
+    .text{ flex:1; padding:10px 12px; border:1px solid #e2e8f0; border-radius:10px; outline:none; font-size:14px; }
+    .text:focus{ border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,183,196,.18); }
+    .btn{ padding:10px 14px; border:none; border-radius:10px; background:var(--primary); color:#fff; cursor:pointer; }
+    .emoji-panel{ position:relative; }
+    .emoji-list{ position:absolute; bottom:46px; left:0; background:#fff; border:1px solid #e2e8f0; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.08); padding:8px; display:none; gap:6px; z-index:10; }
+    .emoji-list button{ width:32px; height:32px; border:none; background:#f1f5f9; border-radius:8px; cursor:pointer; }
+    .emoji-list button:hover{ background:#e2e8f0; }
+    /* 底部工具栏固定：不随消息滚动 */
+    .tagbar{ display:flex; gap:8px; padding:8px 12px; border-top:1px solid #e5e7eb; border-bottom:1px solid #e5e7eb; background:#f8fafc; flex-wrap:wrap; flex-shrink:0; }
+    .tag{ padding:6px 10px; border-radius:999px; border:1px solid #cbd5e1; background:#fff; color:#0f172a; font-size:13px; cursor:pointer; }
+    .tag:hover{ background:#f1f5f9; }
+    .footer{ background:#fff; border-top:1px solid #e5e7eb; padding:8px 12px; font-size:12px; color:#64748b; display:flex; justify-content:space-between; }
+    @media (max-width: 900px){ .main{ grid-template-columns: 1fr; } .sidebar{ display:none; } }
+  </style>
+</head>
+<body data-nickname="{{ nickname }}" data-server="{{ server }}">
+  <div class="wrap">
+    <div class="header">
+      <div class="brand">45码大汗脚带派聊天室 · v0.2</div>
+      <div class="user">欢迎，{{ nickname }}｜<a href="/logout">退出</a></div>
+    </div>
+    <div class="main">
+      <aside class="sidebar">
+        <div class="room-title">联系人</div>
+        <ul id="contacts" class="contacts"></ul>
+      </aside>
+      <section class="content">
+        <div id="messages" class="messages"></div>
+        <!-- 可见的 @ 功能标签栏，点击即在输入框插入对应标签 -->
+        <div class="tagbar">
+          <button class="tag" onclick="insertAt('@成小理')">@成小理</button>
+          <button class="tag" onclick="insertAt('@音乐一下')">@音乐一下</button>
+          <button class="tag" onclick="insertAt('@电影')">@电影</button>
+          <button class="tag" onclick="insertAt('@天气')">@天气</button>
+          <button class="tag" onclick="insertAt('@新闻')">@新闻</button>
+          <button class="tag" onclick="insertAt('@小视频')">@小视频</button>
+        </div>
+        <div class="inputbar">
+          <div class="emoji-panel">
+            <button id="emojiBtn" class="emoji-btn" title="表情">😀</button>
+            <div id="emojiList" class="emoji-list">
+              <button onclick="insertEmoji('😀')">😀</button>
+              <button onclick="insertEmoji('😂')">😂</button>
+              <button onclick="insertEmoji('👍')">👍</button>
+              <button onclick="insertEmoji('❤️')">❤️</button>
+              <button onclick="insertEmoji('🎉')">🎉</button>
+              <button onclick="insertEmoji('🍀')">🍀</button>
+            </div>
+          </div>
+          <input id="msgInput" class="text" placeholder="随便聊点啥吧，支持😀，支持@功能标签…" />
+          <button id="sendBtn" class="btn">发送</button>
+        </div>
+      </section>
+    </div>
+    <div class="footer">仅消息区允许滚动条，其它区域不出现滚动条；功能已整合优化。</div>
+  </div>
+
+  <!-- 动态加载 Socket.IO 客户端：优先后端默认路径，其次本地 /static，再回退到多源 CDN -->
+  <script>
+    function loadSocketIo(done){
+      const tryLoad = (src, next) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = () => done();
+        s.onerror = () => next ? next() : done(new Error('load failed'));
+        document.head.appendChild(s);
+      };
+      // 为保证“能打开”，改为 CDN 优先 → 本地静态 → 服务端
+      tryLoad('https://cdn.socket.io/4.7.2/socket.io.min.js', () => {
+        tryLoad('https://cdn.jsdelivr.net/npm/socket.io-client@4.7.2/dist/socket.io.min.js', () => {
+          tryLoad('/static/js/socket.io.min.js', () => {
+            tryLoad('/socket.io/socket.io.js', () => done(new Error('all sources failed')));
+          });
+        });
+      });
+    }
+    // 兼容未经过模板渲染的静态预览：从 data-* 读取，避免双花括号造成语法错误
+    const nickname = document.body.dataset.nickname || '游客';
+    const server = document.body.dataset.server || '';
+    let socket;
+    let unavailableShown = false;
+    // ---------- AI 任务管理（全局） ----------
+    window.currentAiTask = null;
+    function setActive(obj){ window.currentAiTask = obj; }
+    function clearActive(){ window.currentAiTask = null; }
+    function cancelActiveAi(){
+      const t = window.currentAiTask;
+      if(t && typeof t.cancel === 'function'){
+        try{ t.cancel(); }catch(_){ }
+      }
+      window.currentAiTask = null;
+    }
+
+    function connect(){
+      if(typeof io === 'undefined'){
+        appendMessage({ nickname:'系统', message:'Socket 客户端未加载', timestamp:new Date().toLocaleTimeString(), system:true });
+        return;
+      }
+      // 显式指定 Socket.IO 路径；统一连接到当前页面源
+      // 放宽传输方式以适配公网隧道（若 websocket 不可用则回退为 polling）
+      const opts = {
+        path:'/socket.io',
+        // 强制使用轮询，禁用升级，以适配公网/受限网络
+        transports:['polling'],
+        upgrade:false,
+        reconnection:true,
+        reconnectionAttempts:5,
+        reconnectionDelay:800,
+        timeout:5000,
+        forceNew:true,
+        rememberUpgrade:false
+      };
+      const target = window.location.origin;
+      try {
+        socket = io(target, opts);
+      } catch(e) {
+        // 原域初始化失败时，尝试用户选择的服务器地址
+        if(server){
+          try{ socket = io(new URL(server).origin, opts); }catch(_){ }
+        }
+      }
+      if(!socket){
+        appendMessage({ nickname:'系统', message:'服务不可用', timestamp:new Date().toLocaleTimeString(), system:true });
+        return;
+      }
+      socket.on('connect', () => {
+        socket.emit('join', { nickname });
+      });
+      socket.on('receive_message', (data) => {
+        appendMessage(data);
+        // 在收到自己的消息回显后再触发相关功能，保证气泡顺序
+        if(data && data.nickname === nickname){
+          if(data.message && data.message.includes('@成小理')){
+            startAiStream(data.message, 500);
+          }
+          if(data.message && data.message.includes('@天气')){
+            startWeather(data.message);
+          }
+          if(data.message && data.message.includes('@新闻')){
+            startNews();
+          }
+          if(data.message && data.message.includes('@小视频')){
+            startShortVideo();
+          }
+          if(data.message && (
+            /@音乐(?:一下)?\s*搜索\s+/i.test(data.message) ||
+            /@音乐(?:一下)?\s*歌手\s+/i.test(data.message) ||
+            /@音乐(?:一下)?\s*歌名\s+/i.test(data.message) ||
+            /@音乐一下\s+(?!https?:\/\/)/i.test(data.message) // 简化语法：@音乐一下 关键词（非URL）
+          )){
+            startMusicSearch(data.message);
+          }
+        }
+      });
+      socket.on('system_message', (data) => {
+        appendMessage({ nickname:'系统', message: data.message, timestamp: data.timestamp, system:true });
+      });
+      socket.on('user_list', (list) => { updateContacts(list); });
+
+      // 连接失败或重连失败时，显示“服务不可用”系统提示
+      const showUnavailable = () => {
+        if(unavailableShown) return;
+        unavailableShown = true;
+        appendMessage({ nickname:'系统', message:'服务不可用', timestamp:new Date().toLocaleTimeString(), system:true });
+      };
+      socket.on('connect_error', showUnavailable);
+      socket.on('reconnect_error', showUnavailable);
+      socket.on('reconnect_failed', showUnavailable);
+      socket.on('disconnect', () => {
+        appendMessage({ nickname:'系统', message:'已与服务器断开', timestamp:new Date().toLocaleTimeString(), system:true });
+      });
+    }
+
+    function updateContacts(list){
+      const ul = document.getElementById('contacts');
+      ul.innerHTML = '';
+      (list || []).forEach(name => {
+        const li = document.createElement('li');
+        li.className = 'contact';
+        li.textContent = name;
+        ul.appendChild(li);
+      });
+    }
+
+    function appendMessage({nickname: name, message, timestamp, system}){
+      const box = document.getElementById('messages');
+      const div = document.createElement('div');
+      const cls = system ? 'system' : (name === nickname ? 'me' : 'other');
+      div.className = `bubble ${cls}`;
+
+      // 解析 @电影 并插入 iframe：支持 @电影[url] 或 @电影 url 两种格式
+      let movieUrl = null;
+      if(!system && message && message.includes('@电影')){
+        const m = message.match(/@电影\s*(?:\[(.*?)\]|(https?:\/\/\S+))/i);
+        if(m){
+          movieUrl = (m[1] || m[2] || '').trim();
+        }
+      }
+      if(!system && movieUrl){
+        const header = document.createElement('div');
+        header.textContent = `${name} ${timestamp}`;
+        const iframe = document.createElement('iframe');
+        iframe.width = 400;
+        iframe.height = 400;
+        iframe.style.border = 'none';
+        iframe.setAttribute('allowfullscreen', 'true');
+        iframe.src = `https://jx.m3u8.tv/jiexi/?url=${encodeURIComponent(movieUrl)}`;
+        div.appendChild(header);
+        div.appendChild(iframe);
+      }else{
+        // 解析 @音乐/音乐一下 并插入 audio：支持 @音乐[url] 或 @音乐 url，两者都可
+        let musicUrl = null;
+        if(!system && message && (message.includes('@音乐') || message.includes('@音乐一下'))){
+          const mm = message.match(/@音乐(?:一下)?\s*(?:\[(.*?)\]|(https?:\/\/\S+))/i);
+          if(mm){
+            musicUrl = (mm[1] || mm[2] || '').trim();
+          }
+        }
+        if(!system && musicUrl){
+          const header = document.createElement('div');
+          header.textContent = `${name} ${timestamp}`;
+          const audio = document.createElement('audio');
+          audio.controls = true;
+          audio.style.width = '100%';
+          audio.src = musicUrl;
+          div.appendChild(header);
+          div.appendChild(audio);
+        }else{
+          div.innerText = `${name} ${timestamp}\n${message}`;
+        }
+      }
+
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight; // 仅消息区滚动
+    }
+
+    // 旧的 featurebar 功能暂时移除，如需历史记录等入口，可在右上角再加按钮
+    function insertEmoji(e){
+      const inp = document.getElementById('msgInput');
+      inp.value += e;
+      inp.focus();
+    }
+    function insertAt(tag){
+      const inp = document.getElementById('msgInput');
+      inp.value += (tag + ' ');
+      inp.focus();
+    }
+
+    function send(){
+      const val = document.getElementById('msgInput').value.trim();
+      if(!val) return;
+      if(!socket){
+        appendMessage({ nickname:'系统', message:'服务不可用', timestamp:new Date().toLocaleTimeString(), system:true });
+        return;
+      }
+      socket.emit('send_message', { nickname, message: val });
+      document.getElementById('msgInput').value = '';
+      // 相关功能的触发改为在 receive_message 回调中执行，避免顺序错乱
+    }
+
+    document.getElementById('sendBtn').addEventListener('click', send);
+    document.getElementById('msgInput').addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter'){ send(); }
+    });
+    // Emoji 面板开关
+    document.getElementById('emojiBtn').addEventListener('click', ()=>{
+      const panel = document.getElementById('emojiList');
+      panel.style.display = panel.style.display === 'flex' ? 'none' : 'flex';
+    });
+
+    loadSocketIo((err)=>{
+      if(err || typeof io === 'undefined'){
+        appendMessage({ nickname:'系统', message:'Socket 客户端未加载', timestamp:new Date().toLocaleTimeString(), system:true });
+        return;
+      }
+      connect();
+    });
+
+    // ---------- AI SSE ----------
+    function startAiStream(prompt, delayMs = 500){
+      // 抢占：若有进行中的生成，则立即中断，开始新的
+      cancelActiveAi();
+      const box = document.getElementById('messages');
+      setTimeout(()=>{
+        const div = document.createElement('div');
+        div.className = 'bubble other';
+        const ts = new Date().toLocaleTimeString();
+        div.innerText = `成小理 ${ts}\n`;
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+
+        const base = window.location.origin;
+        const url = `${base}/ai/stream?q=${encodeURIComponent(prompt)}`;
+        const urlComplete = `${base}/ai/complete?q=${encodeURIComponent(prompt)}`;
+        let acc = '';
+        let es;
+        let reader = null;
+        let fetchCtrl = null;
+        // 任务管理函数已在全局定义
+        function update(text){
+          acc += text;
+          div.innerText = `成小理 ${ts}\n${acc}`;
+          box.scrollTop = box.scrollHeight;
+        }
+        function end(){ /* no-op */ }
+        async function fail(){
+          // 最终回退：非流式一次性返回
+          try{
+            const ctrl = new AbortController();
+            setActive({ mode:'complete', cancel: ()=>{ try{ ctrl.abort(); }catch(_){ } } });
+            const r = await fetch(urlComplete, { signal: ctrl.signal });
+            const j = await r.json();
+            if(j && j.ok && j.text){
+              update(j.text);
+              clearActive();
+              return;
+            }
+          }catch(_){ }
+          clearActive();
+          appendMessage({ nickname:'系统', message:'AI服务不可用（SSE连接错误，已尝试回退）', timestamp:new Date().toLocaleTimeString(), system:true });
+        }
+        // 回退：使用 fetch + ReadableStream 解析 SSE
+        async function streamViaFetch(url){
+          try{
+            fetchCtrl = new AbortController();
+            setActive({ mode:'fetch', cancel: ()=>{
+              try{ fetchCtrl.abort(); }catch(_){ }
+              try{ if(reader) reader.cancel(); }catch(_){ }
+            }});
+            const res = await fetch(url, { headers: { 'Accept':'text/event-stream' }, signal: fetchCtrl.signal });
+            if(!res || !res.ok || !res.body){ throw new Error('bad response'); }
+            reader = res.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let buf = '';
+            while(true){
+              const { value, done } = await reader.read();
+              if(done) break;
+              buf += decoder.decode(value, { stream:true });
+              // 解析按 \n\n 分隔的SSE块
+              let idx;
+              while((idx = buf.indexOf('\n\n')) !== -1){
+                const chunk = buf.slice(0, idx);
+                buf = buf.slice(idx + 2);
+                const m = chunk.match(/^data:\s*(.*)$/m);
+                if(!m) continue;
+                const data = m[1];
+                if(data === '[DONE]'){ end(); return; }
+                update(data);
+              }
+            }
+            clearActive();
+          }catch(e){ fail(); }
+        }
+        try{
+          es = new EventSource(url);
+          setActive({ mode:'sse', cancel: ()=>{ try{ es.close(); }catch(_){ } } });
+          es.onmessage = (ev)=>{
+            if(ev.data === '[DONE]'){
+              es.close();
+              clearActive();
+              return;
+            }
+            update(ev.data);
+          };
+          es.onerror = ()=>{
+            try{ es.close(); }catch(_){ }
+            streamViaFetch(url); // 自动回退
+          };
+        }catch(e){
+          // 初始化失败直接回退
+          streamViaFetch(url);
+        }
+      }, delayMs);
+    }
+
+    // ---------- Weather Query ----------
+    function startWeather(message){
+      const box = document.getElementById('messages');
+      const div = document.createElement('div');
+      div.className = 'bubble other';
+      const ts = new Date().toLocaleTimeString();
+      div.innerText = `系统 ${ts}\n天气查询中…`;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+
+      const base = window.location.origin;
+      const url = `${base}/feature/weather?q=${encodeURIComponent(message)}`;
+      fetch(url).then(r=>r.json()).then(j=>{
+        if(j && j.ok){
+          div.innerText = `系统 ${ts}\n${j.text}`;
+        }else{
+          const err = (j && j.error) ? j.error : '天气查询失败';
+          div.innerText = `系统 ${ts}\n${err}`;
+        }
+        box.scrollTop = box.scrollHeight;
+      }).catch(()=>{
+        div.innerText = `系统 ${ts}\n天气服务不可用`;
+        box.scrollTop = box.scrollHeight;
+      });
+    }
+
+    // ---------- Music Search ----------
+    function startMusicSearch(message){
+      // 解析三种语法：
+      // 1) @音乐 搜索 关键词
+      // 2) @音乐一下 歌手 名称
+      // 3) @音乐一下 歌名 标题（可选 + 歌手 或 含“歌手 名称”）
+      let mode = 'search';
+      let keyword = '';
+      let artist = '';
+      let title = '';
+      let m;
+      if((m = message.match(/@音乐(?:一下)?\s*搜索\s+(.+)$/i))){
+        mode = 'search';
+        keyword = m[1].trim();
+      }else if((m = message.match(/@音乐(?:一下)?\s*歌手\s+(.+)$/i))){
+        mode = 'artist';
+        artist = m[1].trim();
+      }else if((m = message.match(/@音乐(?:一下)?\s*歌名\s+(.+)$/i))){
+        mode = 'song';
+        let rest = m[1].trim();
+        // 支持 “歌名 XXX + 歌手 YYY” 或 “歌名 XXX 歌手 YYY”
+        const byPlus = rest.split(/\s*\+\s*/);
+        if(byPlus.length === 2){
+          title = byPlus[0].trim();
+          artist = byPlus[1].replace(/^歌手\s+/, '').trim();
+        }else{
+          const m2 = rest.match(/^(.*?)\s+歌手\s+(.+)$/);
+          if(m2){
+            title = m2[1].trim();
+            artist = m2[2].trim();
+          }else{
+            title = rest;
+          }
+        }
+      }else if((m = message.match(/@音乐一下\s+(.+)$/i))){
+        // 简化语法：@音乐一下 关键词 => 后端自动模式，同时按歌名/歌手两种 attribute 检索
+        const rest = m[1].trim();
+        // 若是 URL，交由上游的直接播放逻辑处理，这里不触发搜索
+        if(/^https?:\/\//i.test(rest)){
+          return;
+        }
+        mode = 'auto';
+        keyword = rest;
+      }
+      const box = document.getElementById('messages');
+      const div = document.createElement('div');
+      div.className = 'bubble other';
+      const ts = new Date().toLocaleTimeString();
+      div.innerText = `系统 ${ts}\n音乐搜索中…`;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+
+      const base = window.location.origin;
+      let url = `${base}/feature/music/search`;
+      if(mode === 'artist'){
+        url += `?mode=artist&artist=${encodeURIComponent(artist)}`;
+      }else if(mode === 'song'){
+        const params = new URLSearchParams({ mode:'song', title });
+        if(artist) params.set('artist', artist);
+        url += `?${params.toString()}`;
+      }else if(mode === 'auto'){
+        url += `?mode=auto&q=${encodeURIComponent(keyword)}`;
+      }else{
+        url += `?q=${encodeURIComponent(keyword)}`;
+      }
+      fetch(url).then(r=>r.json()).then(j=>{
+        if(j && j.ok){
+          const list = j.results || [];
+          const frag = document.createDocumentFragment();
+          const header = document.createElement('div');
+          header.textContent = `系统 ${ts}`;
+          frag.appendChild(header);
+          list.forEach(item => {
+            const row = document.createElement('div');
+            row.style.display = 'grid';
+            row.style.gridTemplateColumns = '60px 1fr';
+            row.style.gap = '8px';
+            row.style.alignItems = 'center';
+
+            const img = document.createElement('img');
+            img.src = item.artworkUrl100 || '';
+            img.style.width = '60px';
+            img.style.height = '60px';
+            img.style.borderRadius = '8px';
+
+            const right = document.createElement('div');
+            const title = document.createElement('div');
+            title.textContent = `${item.trackName || ''} · ${item.artistName || ''}`;
+            title.style.fontSize = '14px';
+            const audio = document.createElement('audio');
+            audio.controls = true;
+            audio.style.width = '100%';
+            if(item.previewUrl){
+              audio.src = item.previewUrl;
+            }
+            const link = document.createElement('a');
+            link.href = item.trackViewUrl || '#';
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = '在 Apple Music 查看';
+            link.style.display = 'inline-block';
+            link.style.marginTop = '4px';
+
+            right.appendChild(title);
+            right.appendChild(audio);
+            right.appendChild(link);
+
+            row.appendChild(img);
+            row.appendChild(right);
+            frag.appendChild(row);
+          });
+          div.innerHTML = '';
+          div.appendChild(frag);
+        }else{
+          const err = (j && j.error) ? j.error : '音乐搜索失败';
+          div.innerText = `系统 ${ts}\n${err}`;
+        }
+        box.scrollTop = box.scrollHeight;
+      }).catch(()=>{
+        div.innerText = `系统 ${ts}\n音乐搜索服务不可用`;
+        box.scrollTop = box.scrollHeight;
+      });
+    }
+
+    // ---------- News ----------
+    function startNews(){
+      const box = document.getElementById('messages');
+      const div = document.createElement('div');
+      div.className = 'bubble other';
+      const ts = new Date().toLocaleTimeString();
+      div.innerText = `系统 ${ts}\n新闻获取中…`;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+
+      const base = window.location.origin;
+      const url = `${base}/feature/news`;
+      fetch(url).then(r=>r.json()).then(j=>{
+        if(j && j.ok){
+          const list = j.results || [];
+          const frag = document.createDocumentFragment();
+          const header = document.createElement('div');
+          header.textContent = `系统 ${ts} · 微博热榜Top${list.length}`;
+          frag.appendChild(header);
+          list.forEach(item => {
+            const row = document.createElement('div');
+            const a = document.createElement('a');
+            a.href = item.url || '#';
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            a.textContent = `${item.index ?? ''}. ${item.title ?? ''}`;
+            const hot = document.createElement('span');
+            hot.textContent = item.hot ? `（热度：${item.hot}）` : '';
+            hot.style.marginLeft = '6px';
+            row.appendChild(a);
+            row.appendChild(hot);
+            frag.appendChild(row);
+          });
+          div.innerHTML = '';
+          div.appendChild(frag);
+        }else{
+          const err = (j && j.error) ? j.error : '新闻获取失败';
+          div.innerText = `系统 ${ts}\n${err}`;
+        }
+        box.scrollTop = box.scrollHeight;
+      }).catch(()=>{
+        div.innerText = `系统 ${ts}\n新闻服务不可用`;
+        box.scrollTop = box.scrollHeight;
+      });
+    }
+
+    // ---------- Short Video ----------
+    function startShortVideo(){
+      const box = document.getElementById('messages');
+      const div = document.createElement('div');
+      div.className = 'bubble other';
+      const ts = new Date().toLocaleTimeString();
+      div.innerText = `系统 ${ts}\n小视频获取中…`;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+
+      const base = window.location.origin;
+      const url = `${base}/feature/video`;
+      fetch(url).then(r=>r.json()).then(j=>{
+        if(j && j.ok){
+          const videoUrl = j.videoUrl;
+          const frag = document.createDocumentFragment();
+          const header = document.createElement('div');
+          header.textContent = `系统 ${ts}`;
+          frag.appendChild(header);
+          const video = document.createElement('video');
+          video.controls = true;
+          video.style.width = '100%';
+          if(videoUrl){
+            video.src = videoUrl;
+          }
+          const link = document.createElement('a');
+          link.href = videoUrl || '#';
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.textContent = '打开原视频';
+          link.style.display = 'inline-block';
+          link.style.marginTop = '6px';
+          frag.appendChild(video);
+          frag.appendChild(link);
+          div.innerHTML = '';
+          div.appendChild(frag);
+        }else{
+          const err = (j && j.error) ? j.error : '小视频获取失败';
+          div.innerText = `系统 ${ts}\n${err}`;
+        }
+        box.scrollTop = box.scrollHeight;
+      }).catch(()=>{
+        div.innerText = `系统 ${ts}\n小视频服务不可用`;
+        box.scrollTop = box.scrollHeight;
+      });
+    }
+  </script>
+</body>
+</html>

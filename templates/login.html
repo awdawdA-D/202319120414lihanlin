@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>45码大汗脚带派聊天室 - 登录</title>
+  <style>
+    :root {
+      --primary: #25b7c4;
+      --bg: #f0f6ff;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; background: linear-gradient(135deg, #d9f2ff, #f7fbff);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Microsoft Yahei", sans-serif;
+    }
+    .container { display: flex; align-items: center; justify-content: center; height: 100%; padding: 24px; }
+    .card { width: 100%; max-width: 420px; background: #fff; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.08); padding: 28px; }
+    h1 { font-size: 20px; margin: 0 0 16px; color: #0f172a; text-align: center; }
+    .form-item { margin-bottom: 14px; }
+    .label { font-size: 14px; color: #334155; margin-bottom: 6px; display: block; }
+    .input, select { width: 100%; padding: 12px 12px; border-radius: 8px; border: 1px solid #e2e8f0; outline: none; font-size: 14px; }
+    .input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,183,196,.18); }
+    .actions { margin-top: 10px; }
+    .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; background: var(--primary); color: #fff; font-size: 15px; cursor: pointer; }
+    .btn:hover { filter: brightness(0.95); }
+    .error { background: #fee2e2; color: #b91c1c; padding: 8px 12px; border-radius: 8px; margin-top: 8px; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>登录聊天室</h1>
+      <form method="post" action="/login">
+        <div class="form-item">
+          <label class="label">昵称</label>
+          <input class="input" name="nickname" placeholder="请输入昵称" required />
+        </div>
+        <div class="form-item">
+          <label class="label">密码</label>
+          <input class="input" name="password" type="password" placeholder="请输入密码（固定123456）" required />
+        </div>
+        <div class="form-item">
+          <label class="label">服务器地址</label>
+          <select name="server" required>
+            {% for s in servers %}
+              <option value="{{ s.url }}">{{ s.name }} - {{ s.url }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="actions">
+          <button class="btn" type="submit">登录</button>
+        </div>
+        {% if error %}
+          <div class="error">{{ error }}</div>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+</body>
+</html>

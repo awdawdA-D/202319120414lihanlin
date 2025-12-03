@@ -1,0 +1,16 @@
+# Python / Flask project
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+venv/
+.venv/
+
+# Logs
+logs/*.log
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+
